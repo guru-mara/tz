@@ -1,0 +1,13 @@
+{
+  "name": "tradezella",
+  "version": "1.0.0",
+  "description": "Gold Trading Journal Application",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "keywords": ["trading", "journal", "gold"],
+  "author": "",
+  "license": "ISC"
+} 
