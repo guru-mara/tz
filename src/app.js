@@ -13,11 +13,15 @@ const authRoutes = require('./routes/authRoutes');
 const accountRoutes = require('./routes/accountRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const riskRoutes = require('./routes/riskRoutes');
+const marketRoutes = require('./routes/marketRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/risk', riskRoutes);
+app.use('/api/market', marketRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
