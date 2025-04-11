@@ -47,12 +47,33 @@ class Account {
     return accounts[0];
   }
 
-  // Update account balance
+  // Update account balance - fixed to handle large numbers and potential issues
   static async updateBalance(accountId, newBalance) {
-    await db.execute(
-      `UPDATE TradingAccounts SET current_balance = ? WHERE account_id = ?`,
-      [newBalance, accountId]
-    );
+    try {
+      // Ensure newBalance is a valid number and within reasonable range
+      if (isNaN(newBalance)) {
+        throw new Error("Invalid balance value: not a number");
+      }
+      
+      // Limit to 2 decimal places to avoid floating point issues
+      const formattedBalance = parseFloat(newBalance.toFixed(2));
+      
+      // Check if the value is within the DECIMAL(20,2) range
+      if (Math.abs(formattedBalance) > 99999999999999999.99) {
+        throw new Error("Balance value exceeds allowed range");
+      }
+      
+      // Execute the update with the safely formatted balance
+      await db.execute(
+        `UPDATE TradingAccounts SET current_balance = ? WHERE account_id = ?`,
+        [formattedBalance, accountId]
+      );
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating account balance:', error);
+      throw error;
+    }
   }
 
   // Delete an account

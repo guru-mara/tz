@@ -161,68 +161,72 @@ class Trade {
 
   // Close a trade - sets exit price, calculates P/L and updates account balance
   static async closeTrade(tradeId, userId, closeData) {
-    const { exit_price, exit_date, post_analysis } = closeData;
-    // Inside the closeTrade method in tradeModel.js
-const postAnalysisData = {
-    // Existing fields
-    was_plan_followed: post_analysis?.was_plan_followed,
-    entry_quality: post_analysis?.entry_quality,
-    exit_quality: post_analysis?.exit_quality,
-    trade_management: post_analysis?.trade_management,
-    emotional_state: post_analysis?.emotional_state,
-    lessons_learned: post_analysis?.lessons_learned,
-    improvements: post_analysis?.improvements,
-    
-    // New fields
-    market_conditions: post_analysis?.market_conditions,
-    key_support_resistance: post_analysis?.key_support_resistance,
-    trade_duration_assessment: post_analysis?.trade_duration_assessment,
-    risk_reward_achieved: post_analysis?.risk_reward_achieved,
-    price_action_patterns: post_analysis?.price_action_patterns,
-    indicators_effectiveness: post_analysis?.indicators_effectiveness,
-    volume_analysis: post_analysis?.volume_analysis,
-    news_impact: post_analysis?.news_impact,
-    correlation_effects: post_analysis?.correlation_effects,
-    session_timing_impact: post_analysis?.session_timing_impact
-  };
-    // Get the trade details
-    const trade = await this.getTradeById(tradeId, userId);
-    if (!trade) return false;
-    
-    // Calculate profit/loss based on direction and prices
-    let profitLoss = 0;
-    if (trade.direction === 'long') {
-      profitLoss = (exit_price - trade.entry_price) * trade.position_size;
-    } else {
-      profitLoss = (trade.entry_price - exit_price) * trade.position_size;
+    try {
+      const { exit_price, exit_date, post_analysis } = closeData;
+      
+      // Get the trade details
+      const trade = await this.getTradeById(tradeId, userId);
+      if (!trade) return false;
+      
+      // Calculate profit/loss based on direction and prices
+      let profitLoss = 0;
+      if (trade.direction === 'long') {
+        profitLoss = (exit_price - trade.entry_price) * trade.position_size;
+      } else {
+        profitLoss = (trade.entry_price - exit_price) * trade.position_size;
+      }
+      
+      // Round to 2 decimal places to avoid floating point issues
+      profitLoss = parseFloat(profitLoss.toFixed(2));
+      
+      // Update the trade with exit details
+      const updateData = {
+        exit_price,
+        exit_date: exit_date || new Date(),
+        status: 'closed',
+        profit_loss: profitLoss
+      };
+      
+      // Add post analysis if provided
+      if (post_analysis) {
+        updateData.post_analysis = post_analysis;
+      }
+      
+      // Update the trade
+      const tradeUpdated = await this.updateTrade(tradeId, userId, updateData);
+      if (!tradeUpdated) return false;
+      
+      // Update account balance
+      try {
+        const Account = require('./accountModel');
+        const account = await Account.getAccountById(trade.account_id, userId);
+        
+        if (account) {
+          // Ensure current_balance is a number
+          const currentBalance = parseFloat(account.current_balance || 0);
+          const newBalance = currentBalance + profitLoss;
+          
+          console.log('Updating balance:', { 
+            accountId: trade.account_id, 
+            currentBalance, 
+            profitLoss, 
+            newBalance 
+          });
+          
+          await Account.updateBalance(trade.account_id, newBalance);
+        }
+        
+        return true;
+      } catch (error) {
+        console.error('Close trade error:', error);
+        
+        // Even if balance update fails, we've already closed the trade
+        return true;
+      }
+    } catch (error) {
+      console.error('Error in closeTrade:', error);
+      throw error;
     }
-    
-    // Update the trade with exit details
-    const updateData = {
-      exit_price,
-      exit_date: exit_date || new Date(),
-      status: 'closed',
-      profit_loss: profitLoss
-    };
-    
-    // Add post analysis if provided
-    if (post_analysis) {
-      updateData.post_analysis = post_analysis;
-    }
-    
-    // Update the trade
-    const tradeUpdated = await this.updateTrade(tradeId, userId, updateData);
-    if (!tradeUpdated) return false;
-    
-    // Update account balance
-    const Account = require('./accountModel');
-    const account = await Account.getAccountById(trade.account_id, userId);
-    if (account) {
-      const newBalance = account.current_balance + profitLoss;
-      await Account.updateBalance(trade.account_id, newBalance);
-    }
-    
-    return true;
   }
 
   // Delete a trade
