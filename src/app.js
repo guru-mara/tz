@@ -8,14 +8,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Rest of your code...
-
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const accountRoutes = require('./routes/accountRoutes');
+const tradeRoutes = require('./routes/tradeRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
+app.use('/api/trades', tradeRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
