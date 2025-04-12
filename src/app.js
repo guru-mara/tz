@@ -1,6 +1,6 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 
@@ -11,17 +11,17 @@ app.use(express.json());
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const accountRoutes = require('./routes/accountRoutes');
-const tradeRoutes = require('./routes/tradeRoutes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
-const riskRoutes = require('./routes/riskRoutes');
-const marketRoutes = require('./routes/marketRoutes');
+const templateRoutes = require('./routes/templateRoutes');
+const scenarioRoutes = require('./routes/scenarioRoutes');
+const simulationRoutes = require('./routes/simulationRoutes');
+const calculatorRoutes = require('./routes/calculatorRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
-app.use('/api/trades', tradeRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/risk', riskRoutes);
-app.use('/api/market', marketRoutes);
+app.use('/api/templates', templateRoutes);
+app.use('/api/scenarios', scenarioRoutes);
+app.use('/api/simulations', simulationRoutes);
+app.use('/api/calculator', calculatorRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
