@@ -284,3 +284,96 @@ const TemplatesPage = () => {
                   helperText={formik.touched.risk_reward_ratio && formik.errors.risk_reward_ratio}
                 />
               </Grid>
+              // Continuing src/pages/Templates/TemplatesPage.jsx
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="position_size_rule"
+                  name="position_size_rule"
+                  label="Position Size Rule"
+                  value={formik.values.position_size_rule}
+                  onChange={formik.handleChange}
+                  error={formik.touched.position_size_rule && Boolean(formik.errors.position_size_rule)}
+                  helperText={formik.touched.position_size_rule && formik.errors.position_size_rule}
+                  placeholder="e.g., 2% of account balance"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="entry_criteria"
+                  name="entry_criteria"
+                  label="Entry Criteria"
+                  multiline
+                  rows={3}
+                  value={formik.values.entry_criteria}
+                  onChange={formik.handleChange}
+                  error={formik.touched.entry_criteria && Boolean(formik.errors.entry_criteria)}
+                  helperText={formik.touched.entry_criteria && formik.errors.entry_criteria}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="exit_criteria"
+                  name="exit_criteria"
+                  label="Exit Criteria"
+                  multiline
+                  rows={3}
+                  value={formik.values.exit_criteria}
+                  onChange={formik.handleChange}
+                  error={formik.touched.exit_criteria && Boolean(formik.errors.exit_criteria)}
+                  helperText={formik.touched.exit_criteria && formik.errors.exit_criteria}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="notes"
+                  name="notes"
+                  label="Notes"
+                  multiline
+                  rows={4}
+                  value={formik.values.notes}
+                  onChange={formik.handleChange}
+                  error={formik.touched.notes && Boolean(formik.errors.notes)}
+                  helperText={formik.touched.notes && formik.errors.notes}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="tags"
+                  name="tags"
+                  label="Tags"
+                  value={formik.values.tags}
+                  onChange={formik.handleChange}
+                  error={formik.touched.tags && Boolean(formik.errors.tags)}
+                  helperText={(formik.touched.tags && formik.errors.tags) || "Separate tags with commas"}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              color="primary" 
+              disabled={formik.isSubmitting || !formik.isValid}
+            >
+              {formik.isSubmitting ? <CircularProgress size={24} /> : 'Save Template'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </Container>
+  );
+};
+
+export default TemplatesPage;
