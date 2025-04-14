@@ -1,42 +1,48 @@
-const TradeTemplate = require('../models/tradeTemplateModel');
+// src/controllers/templateController.js
+const Template = require('../models/templateModel');
 
-// Create a new trade template
+// Create a new template
 exports.createTemplate = async (req, res) => {
   try {
     const userId = req.user.user_id;
     const templateData = req.body;
 
     // Validate input
-    if (!templateData.template_name || !templateData.market) {
+    if (!templateData.template_name) {
       return res.status(400).json({ 
-        message: 'Template name and market are required' 
+        message: 'Template name is required' 
       });
     }
 
+    // Set default market if not provided
+    templateData.market = templateData.market || 'Gold';
+
     // Create template
-    const templateId = await TradeTemplate.create(userId, templateData);
+    const templateId = await Template.create(userId, templateData);
 
     res.status(201).json({
-      message: 'Trade template created successfully',
+      message: 'Template created successfully',
       template_id: templateId,
-      ...templateData
+      ...templateData,
+      created_at: new Date(),
+      updated_at: new Date()
     });
   } catch (error) {
     console.error('Template creation error:', error);
-    res.status(500).json({ message: 'Error creating trade template' });
+    res.status(500).json({ message: 'Error creating template' });
   }
 };
 
-// Get user's trade templates
+// Get user's templates
 exports.getUserTemplates = async (req, res) => {
   try {
     const userId = req.user.user_id;
-    const templates = await TradeTemplate.getUserTemplates(userId);
+    const templates = await Template.getUserTemplates(userId);
 
     res.json(templates);
   } catch (error) {
     console.error('Fetch templates error:', error);
-    res.status(500).json({ message: 'Error fetching trade templates' });
+    res.status(500).json({ message: 'Error fetching templates' });
   }
 };
 
@@ -46,7 +52,7 @@ exports.getTemplateById = async (req, res) => {
     const userId = req.user.user_id;
     const templateId = req.params.id;
 
-    const template = await TradeTemplate.getTemplateById(templateId, userId);
+    const template = await Template.getTemplateById(templateId, userId);
 
     if (!template) {
       return res.status(404).json({ message: 'Template not found' });
@@ -67,26 +73,27 @@ exports.updateTemplate = async (req, res) => {
     const templateData = req.body;
 
     // Validate input
-    if (!templateData.template_name || !templateData.market) {
+    if (!templateData.template_name) {
       return res.status(400).json({ 
-        message: 'Template name and market are required' 
+        message: 'Template name is required' 
       });
     }
 
-    const updated = await TradeTemplate.updateTemplate(templateId, userId, templateData);
+    const updated = await Template.updateTemplate(templateId, userId, templateData);
 
     if (!updated) {
       return res.status(404).json({ message: 'Template not found or unauthorized' });
     }
 
+    const updatedTemplate = await Template.getTemplateById(templateId, userId);
+
     res.json({ 
       message: 'Template updated successfully',
-      template_id: templateId,
-      ...templateData
+      ...updatedTemplate
     });
   } catch (error) {
     console.error('Update template error:', error);
-    res.status(500).json({ message: 'Error updating trade template' });
+    res.status(500).json({ message: 'Error updating template' });
   }
 };
 
@@ -96,7 +103,7 @@ exports.deleteTemplate = async (req, res) => {
     const userId = req.user.user_id;
     const templateId = req.params.id;
 
-    const deleted = await TradeTemplate.deleteTemplate(templateId, userId);
+    const deleted = await Template.deleteTemplate(templateId, userId);
 
     if (!deleted) {
       return res.status(404).json({ message: 'Template not found or unauthorized' });
@@ -105,6 +112,6 @@ exports.deleteTemplate = async (req, res) => {
     res.json({ message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Delete template error:', error);
-    res.status(500).json({ message: 'Error deleting trade template' });
+    res.status(500).json({ message: 'Error deleting template' });
   }
 };

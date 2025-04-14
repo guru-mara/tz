@@ -57,10 +57,13 @@ export const deleteTemplate = async (id) => {
   }
 };
 
-export default {
+// Create a named object for export
+const templateService = {
   getTemplates,
   getTemplateById,
   createTemplate,
   updateTemplate,
   deleteTemplate
 };
+
+export default templateService;

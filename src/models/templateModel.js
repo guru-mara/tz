@@ -1,7 +1,8 @@
+// src/models/templateModel.js
 const db = require('../config/database');
 
-class TradeTemplate {
-  // Create a new trade template
+class Template {
+  // Create a new template
   static async create(userId, templateData) {
     const { 
       template_name, 
@@ -16,14 +17,14 @@ class TradeTemplate {
     } = templateData;
 
     const [result] = await db.execute(
-      `INSERT INTO TradeTemplates 
-      (user_id, template_name, market, setup_type, entry_criteria, 
-       exit_criteria, risk_reward_ratio, position_size_rule, notes, tags, created_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      `INSERT INTO TradingTemplates 
+      (user_id, template_name, market, setup_type, entry_criteria, exit_criteria, 
+       risk_reward_ratio, position_size_rule, notes, tags, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         userId, 
         template_name, 
-        market, 
+        market,
         setup_type,
         entry_criteria,
         exit_criteria,
@@ -40,7 +41,7 @@ class TradeTemplate {
   // Get all templates for a user
   static async getUserTemplates(userId) {
     const [templates] = await db.execute(
-      `SELECT * FROM TradeTemplates WHERE user_id = ? ORDER BY template_name ASC`,
+      `SELECT * FROM TradingTemplates WHERE user_id = ? ORDER BY created_at DESC`,
       [userId]
     );
 
@@ -50,7 +51,7 @@ class TradeTemplate {
   // Get a specific template by ID and user
   static async getTemplateById(templateId, userId) {
     const [templates] = await db.execute(
-      `SELECT * FROM TradeTemplates WHERE template_id = ? AND user_id = ?`,
+      `SELECT * FROM TradingTemplates WHERE template_id = ? AND user_id = ?`,
       [templateId, userId]
     );
 
@@ -72,21 +73,14 @@ class TradeTemplate {
     } = templateData;
 
     const [result] = await db.execute(
-      `UPDATE TradeTemplates 
-       SET template_name = ?, 
-           market = ?, 
-           setup_type = ?,
-           entry_criteria = ?,
-           exit_criteria = ?,
-           risk_reward_ratio = ?, 
-           position_size_rule = ?, 
-           notes = ?, 
-           tags = ?,
-           updated_at = NOW()
+      `UPDATE TradingTemplates 
+       SET template_name = ?, market = ?, setup_type = ?, entry_criteria = ?, 
+           exit_criteria = ?, risk_reward_ratio = ?, position_size_rule = ?, 
+           notes = ?, tags = ?, updated_at = NOW() 
        WHERE template_id = ? AND user_id = ?`,
       [
         template_name, 
-        market, 
+        market,
         setup_type,
         entry_criteria,
         exit_criteria,
@@ -94,7 +88,7 @@ class TradeTemplate {
         position_size_rule,
         notes,
         tags,
-        templateId,
+        templateId, 
         userId
       ]
     );
@@ -105,7 +99,7 @@ class TradeTemplate {
   // Delete a template
   static async deleteTemplate(templateId, userId) {
     const [result] = await db.execute(
-      `DELETE FROM TradeTemplates WHERE template_id = ? AND user_id = ?`,
+      `DELETE FROM TradingTemplates WHERE template_id = ? AND user_id = ?`,
       [templateId, userId]
     );
 
@@ -113,4 +107,4 @@ class TradeTemplate {
   }
 }
 
-module.exports = TradeTemplate;
+module.exports = Template;
