@@ -1,488 +1,536 @@
-// src/pages/Scenarios/ScenariosPage.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, Typography, Button, Grid, Card, CardContent, 
-  CardActions, IconButton, Dialog, DialogTitle, DialogContent, 
-  DialogActions, TextField, Box, CircularProgress, Chip, Paper,
-  FormControl, InputLabel, Select, MenuItem, Tab, Tabs
+import {
+  Container,
+  Typography,
+  Box,
+  Grid,
+  Card,
+  CardContent,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tabs,
+  Tab,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert
 } from '@mui/material';
-import { 
-  Add as AddIcon, 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
-  Psychology as ScenarioIcon,
-  PlayArrow as PlayIcon,
-  TrendingUp as TrendingIcon
-} from '@mui/icons-material';
 import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import scenarioService from '../../services/scenarioService';
-import accountService from '../../services/accountService';
-import templateService from '../../services/templateService';
-import calculatorService from '../../services/calculatorService';
+import * as yup from 'yup';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
 
+// Define validation schemas
+const templateValidationSchema = yup.object({
+  template_name: yup.string().required('Template name is required'),
+  entry_price: yup.number().required('Entry price is required').positive('Must be positive'),
+  stop_loss: yup.number().required('Stop loss is required').positive('Must be positive'),
+  take_profit: yup.number().required('Take profit is required').positive('Must be positive'),
+  risk_reward_ratio: yup.number().positive('Must be positive'),
+  position_size: yup.number().positive('Must be positive'),
+  trade_direction: yup.string().required('Trade direction is required')
+});
+
+// Main component
 const ScenariosPage = () => {
-  const [scenarios, setScenarios] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [editingScenario, setEditingScenario] = useState(null);
-  const [error, setError] = useState('');
+  // State for managing tabs
   const [tabValue, setTabValue] = useState(0);
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchScenarios();
-    fetchAccounts();
-    fetchTemplates();
-  }, []);
-
-  const fetchScenarios = async () => {
-    setIsLoading(true);
-    try {
-      const data = await scenarioService.getScenarios();
-      setScenarios(data);
-      setError('');
-    } catch (err) {
-      setError(err.message || 'Failed to fetch scenarios');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const data = await accountService.getAccounts();
-      setAccounts(data);
-    } catch (err) {
-      console.error('Failed to fetch accounts:', err);
-    }
-  };
-
-  const fetchTemplates = async () => {
-    try {
-      const data = await templateService.getTemplates();
-      setTemplates(data);
-    } catch (err) {
-      console.error('Failed to fetch templates:', err);
-    }
-  };
-
-  // Form validation schema for creating a scenario directly
-  const validationSchema = Yup.object({
-    scenario_name: Yup.string().required('Scenario name is required'),
-    account_id: Yup.number().nullable(),
-    market_condition: Yup.string(),
-    initial_price: Yup.number().positive('Must be positive'),
-    stop_loss: Yup.number().positive('Must be positive'),
-    take_profit: Yup.number().positive('Must be positive'),
-    position_size: Yup.number().positive('Must be positive'),
-    entry_price: Yup.number().positive('Must be positive'),
-    risk_amount: Yup.number().positive('Must be positive'),
-    potential_profit: Yup.number(),
-    risk_reward_ratio: Yup.number().positive('Must be positive'),
-    win_probability: Yup.number().min(0).max(1, 'Must be between 0 and 1'),
-    notes: Yup.string()
+  const [templates, setTemplates] = useState([]);
+  const [scenarios, setScenarios] = useState([]);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [isScenarioDialogOpen, setIsScenarioDialogOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  const [editingScenarioId, setEditingScenarioId] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
   });
 
-  // Form validation schema for creating from template
-  const templateFormValidation = Yup.object({
-    templateId: Yup.number().required('Template is required'),
-    accountId: Yup.number().required('Account is required'),
-    market_condition: Yup.string(),
-    initial_price: Yup.number().required('Initial price is required').positive('Must be positive'),
-    stop_loss: Yup.number().required('Stop loss is required').positive('Must be positive'),
-    take_profit: Yup.number().required('Take profit is required').positive('Must be positive'),
-    position_size: Yup.number().required('Position size is required').positive('Must be positive'),
-    win_probability: Yup.number().min(0).max(1, 'Must be between 0 and 1')
-  });
-
-  // Initial values for direct scenario creation
-  const initialValues = {
-    scenario_name: '',
-    account_id: '',
-    market_condition: 'Bullish',
-    initial_price: '',
-    stop_loss: '',
-    take_profit: '',
-    position_size: '',
-    entry_price: '',
-    risk_amount: '',
-    potential_profit: '',
-    risk_reward_ratio: '',
-    win_probability: 0.5,
-    notes: ''
-  };
-
-  // Formik for direct scenario creation
-  const formik = useFormik({
-    initialValues,
-    validationSchema,
-    onSubmit: async (values, { resetForm }) => {
-      try {
-        if (editingScenario) {
-          await scenarioService.updateScenario(editingScenario.scenario_id, values);
-        } else {
-          await scenarioService.createScenario(values);
-        }
-        resetForm();
-        setDialogOpen(false);
-        setEditingScenario(null);
-        fetchScenarios();
-      } catch (err) {
-        setError(err.message || 'Failed to save scenario');
-      }
-    }
-  });
-
-  // Formik for template-based scenario creation
+  // Formik for template form
   const templateFormik = useFormik({
     initialValues: {
-      templateId: '',
-      accountId: '',
-      market_condition: 'Bullish',
-      initial_price: '',
+      template_name: '',
       entry_price: '',
       stop_loss: '',
       take_profit: '',
+      risk_reward_ratio: '',
       position_size: '',
-      risk_amount: '',
-      potential_profit: '',
-      win_probability: 0.5
+      trade_direction: 'long'
     },
-    validationSchema: templateFormValidation,
-    onSubmit: async (values, { resetForm }) => {
-      try {
-        await scenarioService.createFromTemplate(
-          values.templateId,
-          values.accountId,
-          {
-            market_condition: values.market_condition,
-            initial_price: values.initial_price,
-            entry_price: values.entry_price || values.initial_price,
-            stop_loss: values.stop_loss,
-            take_profit: values.take_profit,
-            position_size: values.position_size,
-            risk_amount: values.risk_amount,
-            potential_profit: values.potential_profit,
-            win_probability: values.win_probability
-          }
-        );
-        resetForm();
-        setTemplateDialogOpen(false);
-        fetchScenarios();
-      } catch (err) {
-        setError(err.message || 'Failed to create scenario from template');
-      }
+    validationSchema: templateValidationSchema,
+    onSubmit: (values) => {
+      handleTemplateSubmit(values);
     }
   });
 
-  // Handle adding new scenario
-  const handleAddScenario = () => {
-    formik.resetForm();
-    setEditingScenario(null);
-    setDialogOpen(true);
+  // Scenario validation schema
+  const scenarioValidationSchema = yup.object({
+    scenario_name: yup.string().required('Scenario name is required'),
+    template_id: yup.number().required('Template is required'),
+    market_condition: yup.string().required('Market condition is required'),
+    entry_notes: yup.string(),
+    exit_notes: yup.string(),
+    risk_notes: yup.string()
+  });
+
+  // Formik for scenario form
+  const scenarioFormik = useFormik({
+    initialValues: {
+      scenario_name: '',
+      template_id: '',
+      market_condition: '',
+      entry_notes: '',
+      exit_notes: '',
+      risk_notes: ''
+    },
+    validationSchema: scenarioValidationSchema,
+    onSubmit: (values) => {
+      handleScenarioSubmit(values);
+    }
+  });
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchTemplates();
+    fetchScenarios();
+  }, []);
+
+  // Fetch templates from API
+  const fetchTemplates = async () => {
+    try {
+      // Replace with your actual API call
+      const response = await fetch('/api/templates');
+      const data = await response.json();
+      setTemplates(data);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load templates',
+        severity: 'error'
+      });
+    }
   };
 
-  // Handle creating scenario from template
-  const handleCreateFromTemplate = () => {
-    templateFormik.resetForm();
-    setTemplateDialogOpen(true);
+  // Fetch scenarios from API
+  const fetchScenarios = async () => {
+    try {
+      // Replace with your actual API call
+      const response = await fetch('/api/scenarios');
+      const data = await response.json();
+      setScenarios(data);
+    } catch (error) {
+      console.error('Error fetching scenarios:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load scenarios',
+        severity: 'error'
+      });
+    }
   };
 
-  // Handle editing an existing scenario
-  const handleEditScenario = (scenario) => {
-    const formValues = {
-      scenario_name: scenario.scenario_name,
-      account_id: scenario.account_id || '',
-      market_condition: scenario.market_condition || 'Bullish',
-      initial_price: scenario.initial_price || '',
-      stop_loss: scenario.stop_loss || '',
-      take_profit: scenario.take_profit || '',
-      position_size: scenario.position_size || '',
-      entry_price: scenario.entry_price || '',
-      risk_amount: scenario.risk_amount || '',
-      potential_profit: scenario.potential_profit || '',
-      risk_reward_ratio: scenario.risk_reward_ratio || '',
-      win_probability: scenario.win_probability || 0.5,
-      notes: scenario.notes || ''
-    };
-    
-    formik.setValues(formValues);
-    setEditingScenario(scenario);
-    setDialogOpen(true);
-  };
-
-  // Calculate trade analytics based on form values
-  const calculateTradeAnalytics = async () => {
-    if (templateFormik.values.initial_price && templateFormik.values.stop_loss && 
-        templateFormik.values.take_profit && templateFormik.values.position_size) {
-      try {
-        const analytics = await calculatorService.calculateTradeAnalytics({
-          entry_price: Number(templateFormik.values.initial_price),
-          stop_loss: Number(templateFormik.values.stop_loss),
-          take_profit: Number(templateFormik.values.take_profit),
-          position_size: Number(templateFormik.values.position_size),
-          win_probability: Number(templateFormik.values.win_probability)
+  // Handle template form submission
+  const handleTemplateSubmit = async (values) => {
+    try {
+      if (editingTemplateId) {
+        // Update existing template
+        await fetch(`/api/templates/${editingTemplateId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(values),
         });
+        setSnackbar({
+          open: true,
+          message: 'Template updated successfully',
+          severity: 'success'
+        });
+      } else {
+        // Create new template
+        await fetch('/api/templates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(values),
+        });
+        setSnackbar({
+          open: true,
+          message: 'Template created successfully',
+          severity: 'success'
+        });
+      }
+      
+      // Refresh templates and close dialog
+      fetchTemplates();
+      handleCloseTemplateDialog();
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to save template',
+        severity: 'error'
+      });
+    }
+  };
 
-        templateFormik.setFieldValue('risk_amount', analytics.riskAmount);
-        templateFormik.setFieldValue('potential_profit', analytics.potentialProfit);
-      } catch (err) {
-        console.error('Failed to calculate analytics:', err);
+  // Handle scenario form submission
+  const handleScenarioSubmit = async (values) => {
+    try {
+      if (editingScenarioId) {
+        // Update existing scenario
+        await fetch(`/api/scenarios/${editingScenarioId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(values),
+        });
+        setSnackbar({
+          open: true,
+          message: 'Scenario updated successfully',
+          severity: 'success'
+        });
+      } else {
+        // Create new scenario
+        await fetch('/api/scenarios', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(values),
+        });
+        setSnackbar({
+          open: true,
+          message: 'Scenario created successfully',
+          severity: 'success'
+        });
+      }
+      
+      // Refresh scenarios and close dialog
+      fetchScenarios();
+      handleCloseScenarioDialog();
+    } catch (error) {
+      console.error('Error saving scenario:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to save scenario',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Open template dialog for editing
+  const handleEditTemplate = (template) => {
+    setEditingTemplateId(template.id);
+    templateFormik.setValues({
+      template_name: template.template_name,
+      entry_price: template.entry_price,
+      stop_loss: template.stop_loss,
+      take_profit: template.take_profit,
+      risk_reward_ratio: template.risk_reward_ratio,
+      position_size: template.position_size,
+      trade_direction: template.trade_direction
+    });
+    setIsTemplateDialogOpen(true);
+  };
+
+  // Open template dialog for adding
+  const handleAddTemplate = () => {
+    setEditingTemplateId(null);
+    templateFormik.resetForm();
+    setIsTemplateDialogOpen(true);
+  };
+
+  // Close template dialog
+  const handleCloseTemplateDialog = () => {
+    setIsTemplateDialogOpen(false);
+  };
+
+  // Open scenario dialog for editing
+  const handleEditScenario = (scenario) => {
+    setEditingScenarioId(scenario.id);
+    scenarioFormik.setValues({
+      scenario_name: scenario.scenario_name,
+      template_id: scenario.template_id,
+      market_condition: scenario.market_condition,
+      entry_notes: scenario.entry_notes,
+      exit_notes: scenario.exit_notes,
+      risk_notes: scenario.risk_notes
+    });
+    setIsScenarioDialogOpen(true);
+  };
+
+  // Open scenario dialog for adding
+  const handleAddScenario = () => {
+    setEditingScenarioId(null);
+    scenarioFormik.resetForm();
+    setIsScenarioDialogOpen(true);
+  };
+
+  // Close scenario dialog
+  const handleCloseScenarioDialog = () => {
+    setIsScenarioDialogOpen(false);
+  };
+
+  // Delete template
+  const handleDeleteTemplate = async (id) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      try {
+        await fetch(`/api/templates/${id}`, { method: 'DELETE' });
+        fetchTemplates();
+        setSnackbar({
+          open: true,
+          message: 'Template deleted successfully',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error('Error deleting template:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete template',
+          severity: 'error'
+        });
       }
     }
   };
 
-  // Watch for changes in key fields to auto-calculate analytics
-  useEffect(() => {
-    if (templateDialogOpen) {
-      calculateTradeAnalytics();
-    }
-  }, [
-    templateFormik.values.initial_price,
-    templateFormik.values.stop_loss,
-    templateFormik.values.take_profit,
-    templateFormik.values.position_size,
-    templateFormik.values.win_probability
-  ]);
-
-  // Handle deleting a scenario
+  // Delete scenario
   const handleDeleteScenario = async (id) => {
     if (window.confirm('Are you sure you want to delete this scenario?')) {
       try {
-        await scenarioService.deleteScenario(id);
+        await fetch(`/api/scenarios/${id}`, { method: 'DELETE' });
         fetchScenarios();
-      } catch (err) {
-        setError(err.message || 'Failed to delete scenario');
+        setSnackbar({
+          open: true,
+          message: 'Scenario deleted successfully',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error('Error deleting scenario:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete scenario',
+          severity: 'error'
+        });
       }
     }
   };
 
+  // Handle tab change
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Scenario Planning
-        </Typography>
-        <Box>
-          <Button 
-            variant="contained" 
-            color="secondary" 
-            startIcon={<TrendingIcon />}
-            onClick={handleCreateFromTemplate}
-            sx={{ mr: 2 }}
-          >
-            From Template
-          </Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<AddIcon />}
-            onClick={handleAddScenario}
-          >
-            New Scenario
-          </Button>
-        </Box>
+    <Container maxWidth="lg">
+      <Typography variant="h4" component="h1" gutterBottom>
+        Trading Scenarios
+      </Typography>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="Templates" />
+          <Tab label="Scenarios" />
+        </Tabs>
       </Box>
 
-      {error && (
-        <Box sx={{ mb: 2 }}>
-          <Typography color="error">{error}</Typography>
-        </Box>
-      )}
+      {/* Templates Tab */}
+      {tabValue === 0 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAddTemplate}
+            >
+              Add Template
+            </Button>
+          </Box>
 
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" my={4}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {scenarios.length === 0 ? (
-            <Grid item xs={12}>
-              <Typography variant="body1">No scenarios found. Create your first trading scenario.</Typography>
-            </Grid>
-          ) : (
-            scenarios.map((scenario) => (
-              <Grid item xs={12} sm={6} md={4} key={scenario.scenario_id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box display="flex" alignItems="center" mb={2}>
-                      <ScenarioIcon color="primary" sx={{ mr: 1 }} />
-                      <Typography variant="h6" component="h2">
-                        {scenario.scenario_name}
-                      </Typography>
+          <Grid container spacing={3}>
+            {templates.map((template) => (
+              <Grid item xs={12} md={6} key={template.id}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6">{template.template_name}</Typography>
+                      <Box>
+                        <IconButton onClick={() => handleEditTemplate(template)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton onClick={() => handleDeleteTemplate(template.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
                     </Box>
-                    {scenario.account_name && (
-                      <Typography color="textSecondary" gutterBottom>
-                        Account: {scenario.account_name}
-                      </Typography>
-                    )}
-                    <Box mb={2}>
-                      <Chip 
-                        label={scenario.market_condition || 'Unknown'} 
-                        size="small" 
-                        color="primary" 
-                        sx={{ mr: 1 }} 
-                      />
-                    </Box>
-                    <Grid container spacing={1}>
+                    <Grid container spacing={2}>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Entry: ${scenario.entry_price?.toFixed(2) || 'N/A'}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">Direction:</Typography>
+                        <Typography variant="body1">{template.trade_direction === 'long' ? 'Long' : 'Short'}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Stop: ${scenario.stop_loss?.toFixed(2) || 'N/A'}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">Entry Price:</Typography>
+                        <Typography variant="body1">${template.entry_price}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Target: ${scenario.take_profit?.toFixed(2) || 'N/A'}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">Stop Loss:</Typography>
+                        <Typography variant="body1">${template.stop_loss}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Size: {scenario.position_size || 'N/A'}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">Take Profit:</Typography>
+                        <Typography variant="body1">${template.take_profit}</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">Risk/Reward:</Typography>
+                        <Typography variant="body1">{template.risk_reward_ratio}:1</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">Position Size:</Typography>
+                        <Typography variant="body1">{template.position_size} units</Typography>
                       </Grid>
                     </Grid>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Risk: ${scenario.risk_amount?.toFixed(2) || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2">
-                      Potential Profit: ${scenario.potential_profit?.toFixed(2) || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2">
-                      R/R Ratio: {scenario.risk_reward_ratio?.toFixed(2) || 'N/A'}
-                    </Typography>
-                    <Typography variant="body2">
-                      Win Probability: {(scenario.win_probability * 100)?.toFixed(0)}%
-                    </Typography>
-                    {scenario.expected_value && (
-                      <Typography variant="body2" fontWeight="bold">
-                        Expected Value: ${scenario.expected_value.toFixed(2)}
-                      </Typography>
-                    )}
                   </CardContent>
-                  <CardActions>
-                    <IconButton 
-                      color="primary" 
-                      onClick={() => handleEditScenario(scenario)}
-                      aria-label="edit scenario"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton 
-                      color="error" 
-                      onClick={() => handleDeleteScenario(scenario.scenario_id)}
-                      aria-label="delete scenario"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                    <IconButton 
-                      color="success" 
-                      aria-label="simulate scenario"
-                      onClick={() => {
-                        // This function would be implemented for creating simulation from scenario
-                        // simulationService.createFromScenario(scenario.scenario_id);
-                      }}
-                    >
-                      <PlayIcon />
-                    </IconButton>
-                  </CardActions>
                 </Card>
               </Grid>
-            ))
-          )}
-        </Grid>
+            ))}
+            {templates.length === 0 && (
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography>No templates found. Create your first template.</Typography>
+                </Paper>
+              </Grid>
+            )}
+          </Grid>
+        </Box>
       )}
 
-      {/* Create/Edit Scenario Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>
-          {editingScenario ? 'Edit Trading Scenario' : 'Create Trading Scenario'}
-        </DialogTitle>
-        <form onSubmit={formik.handleSubmit}>
+      {/* Scenarios Tab */}
+      {tabValue === 1 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleAddScenario}
+            >
+              Add Scenario
+            </Button>
+          </Box>
+
+          <Grid container spacing={3}>
+            {scenarios.map((scenario) => {
+              const template = templates.find(t => t.id === scenario.template_id) || {};
+              return (
+                <Grid item xs={12} key={scenario.id}>
+                  <Card>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6">{scenario.scenario_name}</Typography>
+                        <Box>
+                          <IconButton onClick={() => handleEditScenario(scenario)}>
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton onClick={() => handleDeleteScenario(scenario.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="text.secondary">Template:</Typography>
+                          <Typography variant="body1">{template.template_name || 'Unknown'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="body2" color="text.secondary">Market Condition:</Typography>
+                          <Typography variant="body1">{scenario.market_condition}</Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">Entry Notes:</Typography>
+                          <Typography variant="body1">{scenario.entry_notes || 'None'}</Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">Exit Notes:</Typography>
+                          <Typography variant="body1">{scenario.exit_notes || 'None'}</Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">Risk Notes:</Typography>
+                          <Typography variant="body1">{scenario.risk_notes || 'None'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+            {scenarios.length === 0 && (
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography>No scenarios found. Create your first scenario.</Typography>
+                </Paper>
+              </Grid>
+            )}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Template Dialog */}
+      <Dialog open={isTemplateDialogOpen} onClose={handleCloseTemplateDialog} maxWidth="sm" fullWidth>
+        <form onSubmit={templateFormik.handleSubmit}>
+          <DialogTitle>
+            {editingTemplateId ? 'Edit Template' : 'Create Template'}
+          </DialogTitle>
           <DialogContent>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   margin="normal"
-                  id="scenario_name"
-                  name="scenario_name"
-                  label="Scenario Name"
-                  value={formik.values.scenario_name}
-                  onChange={formik.handleChange}
-                  error={formik.touched.scenario_name && Boolean(formik.errors.scenario_name)}
-                  helperText={formik.touched.scenario_name && formik.errors.scenario_name}
+                  id="template_name"
+                  name="template_name"
+                  label="Template Name"
+                  value={templateFormik.values.template_name}
+                  onChange={templateFormik.handleChange}
+                  error={templateFormik.touched.template_name && Boolean(templateFormik.errors.template_name)}
+                  helperText={templateFormik.touched.template_name && templateFormik.errors.template_name}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <FormControl fullWidth margin="normal">
-                  <InputLabel id="account-label">Trading Account</InputLabel>
+                  <InputLabel id="trade-direction-label">Trade Direction</InputLabel>
                   <Select
-                    labelId="account-label"
-                    id="account_id"
-                    name="account_id"
-                    value={formik.values.account_id}
-                    onChange={formik.handleChange}
-                    label="Trading Account"
+                    labelId="trade-direction-label"
+                    id="trade_direction"
+                    name="trade_direction"
+                    value={templateFormik.values.trade_direction}
+                    onChange={templateFormik.handleChange}
+                    label="Trade Direction"
                   >
-                    <MenuItem value="">
-                      <em>None</em>
-                    </MenuItem>
-                    {accounts.map((account) => (
-                      <MenuItem key={account.account_id} value={account.account_id}>
-                        {account.account_name}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="long">Long</MenuItem>
+                    <MenuItem value="short">Short</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="market_condition"
-                  name="market_condition"
-                  label="Market Condition"
-                  value={formik.values.market_condition}
-                  onChange={formik.handleChange}
-                  error={formik.touched.market_condition && Boolean(formik.errors.market_condition)}
-                  helperText={formik.touched.market_condition && formik.errors.market_condition}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="initial_price"
-                  name="initial_price"
-                  label="Initial Price"
-                  type="number"
-                  value={formik.values.initial_price}
-                  onChange={formik.handleChange}
-                  error={formik.touched.initial_price && Boolean(formik.errors.initial_price)}
-                  helperText={formik.touched.initial_price && formik.errors.initial_price}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   margin="normal"
@@ -490,227 +538,13 @@ const ScenariosPage = () => {
                   name="entry_price"
                   label="Entry Price"
                   type="number"
-                  value={formik.values.entry_price}
-                  onChange={formik.handleChange}
-                  error={formik.touched.entry_price && Boolean(formik.errors.entry_price)}
-                  helperText={formik.touched.entry_price && formik.errors.entry_price}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="stop_loss"
-                  name="stop_loss"
-                  label="Stop Loss"
-                  type="number"
-                  value={formik.values.stop_loss}
-                  onChange={formik.handleChange}
-                  error={formik.touched.stop_loss && Boolean(formik.errors.stop_loss)}
-                  helperText={formik.touched.stop_loss && formik.errors.stop_loss}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="take_profit"
-                  name="take_profit"
-                  label="Take Profit"
-                  type="number"
-                  value={formik.values.take_profit}
-                  onChange={formik.handleChange}
-                  error={formik.touched.take_profit && Boolean(formik.errors.take_profit)}
-                  helperText={formik.touched.take_profit && formik.errors.take_profit}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="position_size"
-                  name="position_size"
-                  label="Position Size"
-                  type="number"
-                  value={formik.values.position_size}
-                  onChange={formik.handleChange}
-                  error={formik.touched.position_size && Boolean(formik.errors.position_size)}
-                  helperText={formik.touched.position_size && formik.errors.position_size}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="risk_amount"
-                  name="risk_amount"
-                  label="Risk Amount"
-                  type="number"
-                  value={formik.values.risk_amount}
-                  onChange={formik.handleChange}
-                  error={formik.touched.risk_amount && Boolean(formik.errors.risk_amount)}
-                  helperText={formik.touched.risk_amount && formik.errors.risk_amount}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="potential_profit"
-                  name="potential_profit"
-                  label="Potential Profit"
-                  type="number"
-                  value={formik.values.potential_profit}
-                  onChange={formik.handleChange}
-                  error={formik.touched.potential_profit && Boolean(formik.errors.potential_profit)}
-                  helperText={formik.touched.potential_profit && formik.errors.potential_profit}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="risk_reward_ratio"
-                  name="risk_reward_ratio"
-                  label="Risk/Reward Ratio"
-                  type="number"
-                  value={formik.values.risk_reward_ratio}
-                  onChange={formik.handleChange}
-                  error={formik.touched.risk_reward_ratio && Boolean(formik.errors.risk_reward_ratio)}
-                  helperText={formik.touched.risk_reward_ratio && formik.errors.risk_reward_ratio}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="win_probability"
-                  name="win_probability"
-                  label="Win Probability (0-1)"
-                  type="number"
-                  inputProps={{ min: 0, max: 1, step: 0.05 }}
-                  value={formik.values.win_probability}
-                  onChange={formik.handleChange}
-                  error={formik.touched.win_probability && Boolean(formik.errors.win_probability)}
-                  helperText={formik.touched.win_probability && formik.errors.win_probability}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="notes"
-                  name="notes"
-                  label="Notes"
-                  multiline
-                  rows={4}
-                  value={formik.values.notes}
-                  onChange={formik.handleChange}
-                  error={formik.touched.notes && Boolean(formik.errors.notes)}
-                  helperText={formik.touched.notes && formik.errors.notes}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
-              color="primary" 
-              disabled={formik.isSubmitting || !formik.isValid}
-            >
-              {formik.isSubmitting ? <CircularProgress size={24} /> : 'Save Scenario'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-
-      {/* Create from Template Dialog */}
-      <Dialog 
-        open={templateDialogOpen} 
-        onClose={() => setTemplateDialogOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>Create Scenario from Template</DialogTitle>
-        <form onSubmit={templateFormik.handleSubmit}>
-          <DialogContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="template-label">Trade Template</InputLabel>
-                  <Select
-                    labelId="template-label"
-                    id="templateId"
-                    name="templateId"
-                    value={templateFormik.values.templateId}
-                    onChange={templateFormik.handleChange}
-                    label="Trade Template"
-                    error={templateFormik.touched.templateId && Boolean(templateFormik.errors.templateId)}
-                  >
-                    <MenuItem value="">
-                      <em>Select a template</em>
-                    </MenuItem>
-                    {templates.map((template) => (
-                      <MenuItem key={template.template_id} value={template.template_id}>
-                        {template.template_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="account-template-label">Trading Account</InputLabel>
-                  <Select
-                    labelId="account-template-label"
-                    id="accountId"
-                    name="accountId"
-                    value={templateFormik.values.accountId}
-                    onChange={templateFormik.handleChange}
-                    label="Trading Account"
-                    error={templateFormik.touched.accountId && Boolean(templateFormik.errors.accountId)}
-                  >
-                    <MenuItem value="">
-                      <em>Select an account</em>
-                    </MenuItem>
-                    {accounts.map((account) => (
-                      <MenuItem key={account.account_id} value={account.account_id}>
-                        {account.account_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="market_condition"
-                  name="market_condition"
-                  label="Market Condition"
-                  value={templateFormik.values.market_condition}
+                  value={templateFormik.values.entry_price}
                   onChange={templateFormik.handleChange}
-                  error={templateFormik.touched.market_condition && Boolean(templateFormik.errors.market_condition)}
-                  helperText={templateFormik.touched.market_condition && templateFormik.errors.market_condition}
+                  error={templateFormik.touched.entry_price && Boolean(templateFormik.errors.entry_price)}
+                  helperText={templateFormik.touched.entry_price && templateFormik.errors.entry_price}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="initial_price"
-                  name="initial_price"
-                  label="Initial Price"
-                  type="number"
-                  value={templateFormik.values.initial_price}
-                  onChange={templateFormik.handleChange}
-                  error={templateFormik.touched.initial_price && Boolean(templateFormik.errors.initial_price)}
-                  helperText={templateFormik.touched.initial_price && templateFormik.errors.initial_price}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   margin="normal"
@@ -724,13 +558,7 @@ const ScenariosPage = () => {
                   helperText={templateFormik.touched.stop_loss && templateFormik.errors.stop_loss}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="take_profit"
-                  name="take_
-                  // Continuing src/pages/Scenarios/ScenariosPage.jsx
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   margin="normal"
@@ -744,7 +572,21 @@ const ScenariosPage = () => {
                   helperText={templateFormik.touched.take_profit && templateFormik.errors.take_profit}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="risk_reward_ratio"
+                  name="risk_reward_ratio"
+                  label="Risk/Reward Ratio"
+                  type="number"
+                  value={templateFormik.values.risk_reward_ratio}
+                  onChange={templateFormik.handleChange}
+                  error={templateFormik.touched.risk_reward_ratio && Boolean(templateFormik.errors.risk_reward_ratio)}
+                  helperText={templateFormik.touched.risk_reward_ratio && templateFormik.errors.risk_reward_ratio}
+                />
+              </Grid>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   margin="normal"
@@ -758,66 +600,128 @@ const ScenariosPage = () => {
                   helperText={templateFormik.touched.position_size && templateFormik.errors.position_size}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseTemplateDialog}>Cancel</Button>
+            <Button type="submit" variant="contained">Save</Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Scenario Dialog */}
+      <Dialog open={isScenarioDialogOpen} onClose={handleCloseScenarioDialog} maxWidth="md" fullWidth>
+        <form onSubmit={scenarioFormik.handleSubmit}>
+          <DialogTitle>
+            {editingScenarioId ? 'Edit Scenario' : 'Create Scenario'}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   margin="normal"
-                  id="win_probability"
-                  name="win_probability"
-                  label="Win Probability (0-1)"
-                  type="number"
-                  inputProps={{ min: 0, max: 1, step: 0.05 }}
-                  value={templateFormik.values.win_probability}
-                  onChange={templateFormik.handleChange}
-                  error={templateFormik.touched.win_probability && Boolean(templateFormik.errors.win_probability)}
-                  helperText={templateFormik.touched.win_probability && templateFormik.errors.win_probability}
+                  id="scenario_name"
+                  name="scenario_name"
+                  label="Scenario Name"
+                  value={scenarioFormik.values.scenario_name}
+                  onChange={scenarioFormik.handleChange}
+                  error={scenarioFormik.touched.scenario_name && Boolean(scenarioFormik.errors.scenario_name)}
+                  helperText={scenarioFormik.touched.scenario_name && scenarioFormik.errors.scenario_name}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel id="template-label">Template</InputLabel>
+                  <Select
+                    labelId="template-label"
+                    id="template_id"
+                    name="template_id"
+                    value={scenarioFormik.values.template_id}
+                    onChange={scenarioFormik.handleChange}
+                    label="Template"
+                    error={scenarioFormik.touched.template_id && Boolean(scenarioFormik.errors.template_id)}
+                  >
+                    {templates.map((template) => (
+                      <MenuItem key={template.id} value={template.id}>
+                        {template.template_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   margin="normal"
-                  id="risk_amount"
-                  name="risk_amount"
-                  label="Risk Amount"
-                  type="number"
-                  value={templateFormik.values.risk_amount}
-                  onChange={templateFormik.handleChange}
-                  error={templateFormik.touched.risk_amount && Boolean(templateFormik.errors.risk_amount)}
-                  helperText={templateFormik.touched.risk_amount && templateFormik.errors.risk_amount}
-                  disabled
+                  id="market_condition"
+                  name="market_condition"
+                  label="Market Condition"
+                  value={scenarioFormik.values.market_condition}
+                  onChange={scenarioFormik.handleChange}
+                  error={scenarioFormik.touched.market_condition && Boolean(scenarioFormik.errors.market_condition)}
+                  helperText={scenarioFormik.touched.market_condition && scenarioFormik.errors.market_condition}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   margin="normal"
-                  id="potential_profit"
-                  name="potential_profit"
-                  label="Potential Profit"
-                  type="number"
-                  value={templateFormik.values.potential_profit}
-                  onChange={templateFormik.handleChange}
-                  error={templateFormik.touched.potential_profit && Boolean(templateFormik.errors.potential_profit)}
-                  helperText={templateFormik.touched.potential_profit && templateFormik.errors.potential_profit}
-                  disabled
+                  id="entry_notes"
+                  name="entry_notes"
+                  label="Entry Notes"
+                  multiline
+                  rows={3}
+                  value={scenarioFormik.values.entry_notes}
+                  onChange={scenarioFormik.handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="exit_notes"
+                  name="exit_notes"
+                  label="Exit Notes"
+                  multiline
+                  rows={3}
+                  value={scenarioFormik.values.exit_notes}
+                  onChange={scenarioFormik.handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  id="risk_notes"
+                  name="risk_notes"
+                  label="Risk Notes"
+                  multiline
+                  rows={3}
+                  value={scenarioFormik.values.risk_notes}
+                  onChange={scenarioFormik.handleChange}
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setTemplateDialogOpen(false)}>Cancel</Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
-              color="primary" 
-              disabled={templateFormik.isSubmitting || !templateFormik.isValid}
-            >
-              {templateFormik.isSubmitting ? <CircularProgress size={24} /> : 'Create Scenario'}
-            </Button>
+            <Button onClick={handleCloseScenarioDialog}>Cancel</Button>
+            <Button type="submit" variant="contained">Save</Button>
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

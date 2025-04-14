@@ -221,8 +221,6 @@ const CalculatorsPage = () => {
                     inputProps={{ step: 0.1 }}
                     value={positionSizeFormik.values.risk_percentage}
                     onChange={positionSizeFormik.handleChange}
-                    error={positionSizeFormik.touched.risk_percentage && Boolean(positionSizeFormik.errors
-                        // Continuing src/pages/Calculators/CalculatorsPage.jsx
                     error={positionSizeFormik.touched.risk_percentage && Boolean(positionSizeFormik.errors.risk_percentage)}
                     helperText={positionSizeFormik.touched.risk_percentage && positionSizeFormik.errors.risk_percentage}
                   />

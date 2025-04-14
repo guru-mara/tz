@@ -1,65 +1,66 @@
-// src/services/templateService.js
 import axios from 'axios';
-import config from '../config';
 
-const { API } = config;
+const API_URL = '/api/templates';
 
 // Get all templates
-const getTemplates = async () => {
+export const getTemplates = async () => {
   try {
-    const response = await axios.get(API.endpoints.templates.base);
+    const response = await axios.get(API_URL);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Failed to fetch templates' };
+    console.error('Error fetching templates:', error);
+    throw error;
   }
 };
 
 // Get template by ID
-const getTemplateById = async (id) => {
+export const getTemplateById = async (id) => {
   try {
-    const response = await axios.get(API.endpoints.templates.getById(id));
+    const response = await axios.get(`${API_URL}/${id}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Failed to fetch template' };
+    console.error(`Error fetching template with ID ${id}:`, error);
+    throw error;
   }
 };
 
 // Create new template
-const createTemplate = async (templateData) => {
+export const createTemplate = async (templateData) => {
   try {
-    const response = await axios.post(API.endpoints.templates.base, templateData);
+    const response = await axios.post(API_URL, templateData);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Failed to create template' };
+    console.error('Error creating template:', error);
+    throw error;
   }
 };
 
 // Update template
-const updateTemplate = async (id, templateData) => {
+export const updateTemplate = async (id, templateData) => {
   try {
-    const response = await axios.put(API.endpoints.templates.getById(id), templateData);
+    const response = await axios.put(`${API_URL}/${id}`, templateData);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Failed to update template' };
+    console.error(`Error updating template with ID ${id}:`, error);
+    throw error;
   }
 };
 
 // Delete template
-const deleteTemplate = async (id) => {
+export const deleteTemplate = async (id) => {
   try {
-    const response = await axios.delete(API.endpoints.templates.getById(id));
+    const response = await axios.delete(`${API_URL}/${id}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: 'Failed to delete template' };
+    console.error(`Error deleting template with ID ${id}:`, error);
+    throw error;
   }
 };
 
-const templateService = {
+export default {
   getTemplates,
   getTemplateById,
   createTemplate,
   updateTemplate,
   deleteTemplate
 };
-
-export default templateService;
