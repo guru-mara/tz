@@ -1,4 +1,5 @@
-const User = require('../models/UserModel'); // Updated capitalization to match file name
+// src/controllers/authController.js
+const User = require('../models/UserModel'); // Fixed case sensitivity in import
 const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
@@ -13,8 +14,6 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    console.log('Register attempt:', { username, email });
-
     // Validate input
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please provide username, email, and password' });
@@ -28,7 +27,6 @@ exports.register = async (req, res) => {
 
     // Create user
     const userId = await User.create(username, email, password);
-    console.log('User created with ID:', userId);
 
     // Generate token
     const token = generateToken(userId);
@@ -40,8 +38,8 @@ exports.register = async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Registration error details:', error);
-    res.status(500).json({ message: 'Server error during registration', details: error.message });
+    console.error(error);
+    res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
@@ -72,7 +70,7 @@ exports.login = async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error(error);
     res.status(500).json({ message: 'Server error during login' });
   }
 };
